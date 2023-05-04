@@ -135,7 +135,7 @@ def train_process(global_agent, vae, rnn, update_term, pid, state_dims, hidden_d
                 agent.replay.push(state.data, p, reward_tensor, next_state.data)
                 
                 running_mean = np.mean(scores[-30:])
-                print('PID: {}, Ep: {}, Replays: {}, Running Mean: {:.2f}, Score: {:.2f}'                      .format(pid, ep, len(agent.replay), running_mean, score))
+                print('PID: {}, Ep: {}, Replays: {}, Running Mean: {:.2f}, Score: {:.2f}'.format(pid, ep, len(agent.replay), running_mean, score))
                 scores.append(score)
                 running_means.append(running_mean)
         
@@ -272,6 +272,7 @@ def test_process(global_agent, vae, rnn, update_term, pid, state_dims, hidden_di
     save_ckpt(pdict, 'A3C({:03d})-{}.pth.tar'.format(int(score), ep))
     return pdict
 
+
 def save_ckpt(info, filename, root='ckpt', add_prefix=None, save_model=True):
     if add_prefix is None:
         ckpt_dir = os.path.join(root, type(info['agent']).__name__)
@@ -288,6 +289,8 @@ def save_ckpt(info, filename, root='ckpt', add_prefix=None, save_model=True):
     plt.plot(info['scores'])
     plt.plot(info['avgs'])
     plt.savefig('{}/scores-{}.png'.format(ckpt_dir, filename))
+
+
 
 def save_means_plot(infos, add_prefix=None, root='ckpt'):
     if add_prefix is None:
@@ -306,10 +309,13 @@ def save_means_plot(infos, add_prefix=None, root='ckpt'):
 # ### V model & M model
 
 vae_path = sorted(glob.glob(os.path.join(hp.ckpt_dir, 'vae', '*.pth.tar')))[-1]
-vae_state = torch.load(vae_path, map_location={'cuda:0': str(device)})
+vae_state = torch.load(vae_path, map_location={'cuda:0': str(device)})     # mapping nn From cuda:0 to str(device)
 
 rnn_path = sorted(glob.glob(os.path.join(hp.ckpt_dir, 'rnn', '*.pth.tar')))[-1]
 rnn_state = torch.load(rnn_path, map_location={'cuda:0': str(device)})
+
+# vae_path = os.path.join(hp.ckpt_dir, 'vae', '2000k.pth.tar')
+# rnn_path = os.path.join(hp.ckpt_dir, 'rnn', '200k.pth.tar')
 
 vae = VAE(hp.vsize).to(device)
 vae.load_state_dict(vae_state['model'])

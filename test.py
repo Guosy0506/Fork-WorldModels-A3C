@@ -40,20 +40,22 @@ transform = transforms.Compose([
 
 
 def obs2tensor(obs):
-    binary_road = obs2feature(obs) # (10, 10)
+    binary_road = obs2feature(obs)  # (10, 10)
     s = binary_road.flatten()
     s = torch.tensor(s.reshape([1, -1]), dtype=torch.float)
     obs = np.ascontiguousarray(obs)
     obs = transform(obs).unsqueeze(0)
     return obs.to(device), s.to(device)
 
+
 def obs2feature(s):
-    upper_field = s[:84, 6:90] # we crop side of screen as they carry little information
+    upper_field = s[:84, 6:90]  # we crop side of screen as they carry little information
     img = cv2.cvtColor(upper_field, cv2.COLOR_RGB2GRAY)
     upper_field_bw = cv2.threshold(img, 120, 255, cv2.THRESH_BINARY)[1]
-    upper_field_bw = cv2.resize(upper_field_bw, (10, 10), interpolation = cv2.INTER_NEAREST) # re scaled to 7x7 pixels
-    upper_field_bw = upper_field_bw.astype(np.float32)/255
+    upper_field_bw = cv2.resize(upper_field_bw, (10, 10), interpolation=cv2.INTER_NEAREST)  # re scaled to 7x7 pixels
+    upper_field_bw = upper_field_bw.astype(np.float32) / 255
     return upper_field_bw
+
 
 def set_seed(seed, env=None):
     if env is not None:
@@ -62,13 +64,12 @@ def set_seed(seed, env=None):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-def test_process(global_agent, vae, rnn, update_term, pid, state_dims, hidden_dims, lr, n_play=1, seed=0):
+
+def test_process(global_agent, vae, rnn, update_term, pid, state_dims, hidden_dims, lr, n_play=1, seed=0, record=False):
     env = gym.make('CarRacing-v0')
     set_seed(seed, env=env)
-    env.verbose = 0
-    env.render()
     agent = global_agent
-    
+
     scores = []
     step = 0
     for ep in range(n_play):
@@ -88,7 +89,6 @@ def test_process(global_agent, vae, rnn, update_term, pid, state_dims, hidden_di
         next_obs, next_s = obs2tensor(next_obs)
         with torch.no_grad():
             next_latent_mu, _ = vae.encoder(next_obs)
-        
 
         while True:
             if not record:
@@ -103,13 +103,13 @@ def test_process(global_agent, vae, rnn, update_term, pid, state_dims, hidden_di
             latent_mu = next_latent_mu
 
             # Select action about time t
-            
+
             if hp.use_binary_feature:
                 state = torch.cat([latent_mu, hidden[0].squeeze(0), s], dim=1)
             else:
                 state = torch.cat([latent_mu, hidden[0].squeeze(0)], dim=1)
 
-            action, _ = agent.select_action(state) # nparray, tensor
+            action, _ = agent.select_action(state)  # nparray, tensor
             next_obs, reward, done, _ = env.step(action.reshape([-1]))
 
             with torch.no_grad():
@@ -119,18 +119,19 @@ def test_process(global_agent, vae, rnn, update_term, pid, state_dims, hidden_di
             # MDN-RNN about time t+1
             with torch.no_grad():
                 action = torch.tensor(action, dtype=torch.float).view(1, -1).to(device)
-                vision_action = torch.cat([next_latent_mu, action], dim=-1) #
+                vision_action = torch.cat([next_latent_mu, action], dim=-1)  #
                 vision_action = vision_action.view(1, 1, -1)
-                _, _, _, next_hidden = rnn.infer(vision_action, hidden) #
+                _, _, _, next_hidden = rnn.infer(vision_action, hidden)  #
 
             # next_state = torch.cat([next_latent_mu, next_hidden[0], next_s], dim=1)
 
             # Scores
             score += reward
-            
+
             if done:
                 scores.append(score)
-                print('PID: {}, Ep: {}, Replays: {}, Mean: {:.2f}, Score: {:.2f}'.format(pid, ep, len(agent.replay), np.mean(scores), score))
+                print('PID: {}, Ep: {}, Replays: {}, Mean: {:.2f}, Score: {:.2f}'.format(pid, ep, len(agent.replay),
+                                                                                         np.mean(scores), score))
                 break
 
             i += 1
@@ -151,12 +152,13 @@ def test_process(global_agent, vae, rnn, update_term, pid, state_dims, hidden_di
     env.close()
     return pdict, best_gif
 
+
 def save_ckpt(info, filename, root='ckpt', add_prefix=None, save_model=True):
     if add_prefix is None:
         ckpt_dir = os.path.join(root, type(info['agent']).__name__)
     else:
         ckpt_dir = os.path.join(root, add_prefix, type(info['agent']).__name__)
-    
+
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)
     if save_model:
@@ -167,6 +169,7 @@ def save_ckpt(info, filename, root='ckpt', add_prefix=None, save_model=True):
     plt.plot(info['scores'])
     plt.plot(info['avgs'])
     plt.savefig('{}/scores-{}.png'.format(ckpt_dir, filename))
+
 
 def play(n_play, seed, record):
     vae_path = sorted(glob.glob(os.path.join(hp.ckpt_dir, 'vae', '*.pth.tar')))[-1]
@@ -197,11 +200,11 @@ def play(n_play, seed, record):
     global_agent.load_state_dict(agent_state['agent'].state_dict())
 
     _, gif = test_process(global_agent, vae, rnn, 0, 0, state_dims, hidden_dims, lr, n_play, seed, record)
-    
+
     if record:
         gif = list(
-            map(lambda img: np.array(PIL.Image.fromarray(img[::2, ::2, :], 'RGB')\
-                ).transpose([2,0,1]),
+            map(lambda img: np.array(PIL.Image.fromarray(img[::2, ::2, :], 'RGB')
+                                     ).transpose([2, 0, 1]),
                 gif)
         )
         write_gif(gif, 'a3c.gif', fps=30)
@@ -213,4 +216,6 @@ if __name__ == '__main__':
     record = sys.argv[3]
     if record in ['True', '1']:
         record = True
+    if record in ['False', '0']:
+        record = False
     play(n_play, seed, record)

@@ -78,7 +78,7 @@ class Decoder(nn.Module):
 
 def vae_loss(recon_x, x, mu, logvar):
     """ VAE loss function """
-    recon_loss = nn.MSELoss(size_average=False)
+    recon_loss = nn.MSELoss(reduction='sum')
     BCE = recon_loss(recon_x, x)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     return BCE + KLD, BCE, KLD
