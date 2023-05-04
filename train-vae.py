@@ -29,6 +29,7 @@ def train():
         print('Loaded vae ckpt {}'.format(ckpt))
 
     data_path = hp.data_dir if not hp.extra else hp.extra_dir
+    # when hp.extra is True, data loaded from additional
     dataset = GameSceneDataset(data_path)
     loader = DataLoader(
         dataset, batch_size=hp.batch_size, shuffle=True,
