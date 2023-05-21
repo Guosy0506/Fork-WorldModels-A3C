@@ -66,7 +66,7 @@ def train():
                     'optimizer': optimizer.state_dict(),
                 }
                 torch.save(
-                    d, os.path.join(ckpt_dir, '{:03d}k.pth.tar'.format(global_step//1000))
+                    d, os.path.join(ckpt_dir, '{:04d}k.pth.tar'.format(global_step//1000))
                 )
             global_step += 1
 
